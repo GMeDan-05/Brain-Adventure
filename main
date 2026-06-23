@@ -8,7 +8,7 @@ width, height = screen.get_size()
 pygame.display.set_caption("Brain Adventure")
 
 # Settings icon
-settings_icon = pygame.image.load("SETTINGS GEAR.png")
+settings_icon = pygame.image.load("settings_logo.png")
 settings_icon = pygame.transform.smoothscale(settings_icon, (width // 18, height // 18))
 settings_rect = settings_icon.get_rect(topright=(width - 25, 25))
 
@@ -48,9 +48,9 @@ show_popup = False
 
 # Background scenes (smoothscale untuk HD)
 bg_images = [
-    pygame.transform.smoothscale(pygame.image.load("intro hp1.jpg"), (width, height)),
-    pygame.transform.smoothscale(pygame.image.load("intro hp2.jpg"), (width, height)),
-    pygame.transform.smoothscale(pygame.image.load("intro hp3.jpg"), (width, height))
+    pygame.transform.smoothscale(pygame.image.load("intro hp1.png"), (width, height)),
+    pygame.transform.smoothscale(pygame.image.load("intro hp2.png"), (width, height)),
+    pygame.transform.smoothscale(pygame.image.load("intro hp3.png"), (width, height))
 ]
 bg_index = 0
 last_switch = time.time()
