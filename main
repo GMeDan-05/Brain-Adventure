@@ -1,4 +1,5 @@
 import pygame, sys, time, math
+from minigames import MemoryGame, DragDropGame, AudioQuizGame
 
 pygame.init()
 screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
@@ -7,12 +8,46 @@ pygame.display.set_caption("Brain Adventure")
 
 clock = pygame.time.Clock()
 
-# Backgrounds (homepage slideshow)
-bg_images = [
-    pygame.transform.smoothscale(pygame.image.load("assets/images/intro hp1.jpg"), (width, height)),
-    pygame.transform.smoothscale(pygame.image.load("assets/images/intro hp2.jpg"), (width, height)),
-    pygame.transform.smoothscale(pygame.image.load("assets/images/intro hp3.jpg"), (width, height))
-]
+# --- Helper Functions ---
+def load_button(path, w, h):
+    img = pygame.image.load(path).convert_alpha()
+    return pygame.transform.smoothscale(img, (w, h))
+
+def load_button_ratio(path, target_w):
+    img = pygame.image.load(path).convert_alpha()
+    orig_w, orig_h = img.get_size()
+    scale = target_w / orig_w
+    target_h = int(orig_h * scale)
+    return pygame.transform.smoothscale(img, (target_w, target_h))
+
+def resize_level(img, target_w):
+    ow, oh = img.get_size()
+    scale = target_w / ow
+    return pygame.transform.smoothscale(img, (target_w, int(oh*scale)))
+
+def draw_hover_button(screen, img, rect, mouse_pos):
+    if rect.collidepoint(mouse_pos):
+        zoom_img = pygame.transform.rotozoom(img, 0, 1.1)
+        shadow = zoom_img.copy()
+        shadow.fill((0,0,0,120), special_flags=pygame.BLEND_RGBA_MULT)
+        screen.blit(shadow, zoom_img.get_rect(center=rect.center).move(4,4))
+        screen.blit(zoom_img, zoom_img.get_rect(center=rect.center))
+    else:
+        screen.blit(img, rect)
+
+# --- ASSETS & SETUP ---
+try:
+    bg_images = [
+        pygame.transform.smoothscale(pygame.image.load("assets/images/intro hp1.jpg"), (width, height)),
+        pygame.transform.smoothscale(pygame.image.load("assets/images/intro hp2.jpg"), (width, height)),
+        pygame.transform.smoothscale(pygame.image.load("assets/images/intro hp3.jpg"), (width, height))
+    ]
+except:
+    bg_images = [
+        pygame.transform.smoothscale(pygame.image.load("intro hp1.png"), (width, height)),
+        pygame.transform.smoothscale(pygame.image.load("intro hp2.png"), (width, height)),
+        pygame.transform.smoothscale(pygame.image.load("intro hp3.png"), (width, height))
+    ]
 bg_index, last_switch, switch_interval = 0, time.time(), 0.5
 
 # Logo (homepage)
@@ -34,13 +69,9 @@ settings_rect = settings_icon.get_rect(topright=(width - 25, 25))
 button_width, button_height = width//4, height//8
 spacing, start_y = height//30, int(height*0.5)
 
-def load_button(path):
-    img = pygame.image.load(path).convert_alpha()
-    return pygame.transform.smoothscale(img, (button_width, button_height))
-
-play_img = load_button("assets/images/PLAY.png")
-report_img = load_button("assets/images/DAILY REPORT.png")
-exit_img = load_button("assets/images/EXIT.png")
+play_img = load_button("assets/images/PLAY.png", button_width, button_height)
+report_img = load_button("assets/images/DAILY REPORT.png", button_width, button_height)
+exit_img = load_button("assets/images/EXIT.png", button_width, button_height)
 
 buttons_home = {
     "Play": {"rect": pygame.Rect(width//2 - button_width//2, start_y, button_width, button_height), "img": play_img},
@@ -55,35 +86,20 @@ popup_buttons = {
 }
 show_popup = False
 
-#start settings page
-# --- Function resize ikut ratio ---
-def load_button_ratio(path, target_w):
-    img = pygame.image.load(path).convert_alpha()
-    orig_w, orig_h = img.get_size()
-    scale = target_w / orig_w
-    target_h = int(orig_h * scale)
-    return pygame.transform.smoothscale(img, (target_w, target_h))
-
 # --- Settings page assets ---
 bg_settings = pygame.transform.smoothscale(pygame.image.load("assets/images/BG.jpg"), (width, height))
 title_img = pygame.image.load("assets/images/SETTINGS IMG.png").convert_alpha()
 title_img = pygame.transform.smoothscale(title_img, (width//3.5, height//6))
 title_rect = title_img.get_rect(center=(width//2, height//6))
 
-# --- Button Settings page lebih kecil ---
 button_settings_w = width // 8
 timer_img = load_button_ratio("assets/images/TIMER.png", button_settings_w)
 music_img = load_button_ratio("assets/images/MUSIC.png", button_settings_w)
 volume_img = load_button_ratio("assets/images/VOLUME.png", button_settings_w)
 
-# --- Back button ikut saiz gear icon homepage ---
-back_img = pygame.transform.smoothscale(
-    pygame.image.load("assets/images/BACK.png").convert_alpha(),
-    (target_w, target_h)
-)
+back_img = pygame.transform.smoothscale(pygame.image.load("assets/images/BACK.png").convert_alpha(), (target_w, target_h))
 back_rect = back_img.get_rect(topleft=(25, 25))
 
-# --- Spacing lebih luas supaya tak rapat ---
 spacing_set, start_y_set = height // 4.5, height // 3
 timer_rect = timer_img.get_rect(center=(width // 2, start_y_set))
 music_rect = music_img.get_rect(center=(width // 2, start_y_set + spacing_set))
@@ -95,16 +111,12 @@ subj_title_img = pygame.image.load("assets/images/SUBJ IMG.png").convert_alpha()
 subj_title_img = pygame.transform.smoothscale(subj_title_img, (width//3.5, height//6))
 subj_title_rect = subj_title_img.get_rect(center=(width//2, height//6))
 
-# --- Button Subject page ---
 button_subject_w = width // 5
 bm_img = load_button_ratio("assets/images/BM.png", button_subject_w)
 eng_img = load_button_ratio("assets/images/ENG.png", button_subject_w)
 mt_img = load_button_ratio("assets/images/MT.png", button_subject_w)
 
-back_subj_img = pygame.transform.smoothscale(
-    pygame.image.load("assets/images/BACK.png").convert_alpha(),
-    (target_w, target_h)
-)
+back_subj_img = pygame.transform.smoothscale(pygame.image.load("assets/images/BACK.png").convert_alpha(), (target_w, target_h))
 back_subj_rect = back_subj_img.get_rect(topleft=(25,25))
 
 spacing_subj, start_y_subj = height // 4.5, height // 3
@@ -118,15 +130,11 @@ age_title_img = pygame.image.load("assets/images/AGE IMG.png").convert_alpha()
 age_title_img = pygame.transform.smoothscale(age_title_img, (width//3.5, height//6))
 age_title_rect = age_title_img.get_rect(center=(width//2, height//6))
 
-# --- Button Age page ---
 button_age_w = width // 5
 age_3_6_img = load_button_ratio("assets/images/AGE_3-6.png", button_age_w)
 age_7_9_img = load_button_ratio("assets/images/AGE_7-9.png", button_age_w)
 
-back_age_img = pygame.transform.smoothscale(
-    pygame.image.load("assets/images/BACK.png").convert_alpha(),
-    (target_w, target_h)
-)
+back_age_img = pygame.transform.smoothscale(pygame.image.load("assets/images/BACK.png").convert_alpha(), (target_w, target_h))
 back_age_rect = back_age_img.get_rect(topleft=(25,25))
 
 spacing_age, start_y_age = height // 4.5, height // 3
@@ -134,26 +142,16 @@ age_3_6_rect = age_3_6_img.get_rect(center=(width // 2, start_y_age))
 age_7_9_rect = age_7_9_img.get_rect(center=(width // 2, start_y_age + spacing_age))
 
 # --- Level Map assets ---
-bg_levelmap = pygame.transform.smoothscale(
-    pygame.image.load("assets/images/LEVMAP BG.JPG"), (width, height)
-)
+bg_levelmap = pygame.transform.smoothscale(pygame.image.load("assets/images/LEVMAP BG.JPG"), (width, height))
 
-# Banner title
 levelmap_title_img = pygame.image.load("assets/images/LEVMAP.png").convert_alpha()
 levelmap_title_img = pygame.transform.smoothscale(levelmap_title_img, (width//3.5, height//6))
 levelmap_title_rect = levelmap_title_img.get_rect(center=(width//2, height//6))
 
-# Level buttons
 level1_img = pygame.image.load("assets/images/LEVEL 1.png").convert_alpha()
 level2_img = pygame.image.load("assets/images/LEVEL 2.png").convert_alpha()
 level3_img = pygame.image.load("assets/images/LEVEL 3.png").convert_alpha()
 lock_img   = pygame.image.load("assets/images/LEVEL LOCK.png").convert_alpha()
-
-# Resize ikut ratio
-def resize_level(img, target_w):
-    ow, oh = img.get_size()
-    scale = target_w / ow
-    return pygame.transform.smoothscale(img, (target_w, int(oh*scale)))
 
 button_level_w = width // 4
 level1_img = resize_level(level1_img, button_level_w)
@@ -161,76 +159,65 @@ level2_img = resize_level(level2_img, button_level_w)
 level3_img = resize_level(level3_img, button_level_w)
 lock_img   = resize_level(lock_img, button_level_w)
 
-# Position level buttons
-level1_rect = level1_img.get_rect(center=(430, 298))
-level2_rect = level2_img.get_rect(center=(800, 479))
-level3_rect = level3_img.get_rect(center=(1100, 711))
+level1_rect = level1_img.get_rect(center=(width * 0.25, height * 0.4))
+level2_rect = level2_img.get_rect(center=(width * 0.5, height * 0.6))
+level3_rect = level3_img.get_rect(center=(width * 0.75, height * 0.8))
 
-back_level_img = pygame.transform.smoothscale(
-    pygame.image.load("assets/images/BACK.png").convert_alpha(),
-    (target_w, target_h)
-)
+back_level_img = pygame.transform.smoothscale(pygame.image.load("assets/images/BACK.png").convert_alpha(), (target_w, target_h))
 back_level_rect = back_level_img.get_rect(topleft=(25,25))
 
-# Track progress
-level_unlocked = {"3-6": 1, "7-9": 1}  # default unlock level 1 only
+# ==========================================
+# --- STATE CONTROL VARIABLES ---
+# ==========================================
+level_unlocked = {"3-6": 1, "7-9": 1}  
 selected_age = None
+selected_subject = None 
+current_level = None
+active_minigame = None 
 
-# State control
-current_page = "home"
+# 1. Initialize the Stack
+page_stack = ["home"] 
 
-# Main loop
+# --- MAIN LOOP ---
 while True:
     mouse_pos = pygame.mouse.get_pos()
+    
+    # 2. Get the current page from the top of the stack
+    current_page = page_stack[-1]
 
+    # ==========================================
+    # 1. RENDERING BLOCK (Draws everything)
+    # ==========================================
     if current_page == "home":
         if not show_popup:
-            # Background slideshow berjalan
             if time.time() - last_switch > switch_interval:
                 bg_index = (bg_index + 1) % len(bg_images)
                 last_switch = time.time()
             screen.blit(bg_images[bg_index], (0,0))
 
-            # Settings gear
             if settings_rect.collidepoint(mouse_pos):
                 zoom_icon = pygame.transform.rotozoom(settings_icon, 0, 1.1)
                 screen.blit(zoom_icon, zoom_icon.get_rect(center=settings_rect.center))
             else:
                 screen.blit(settings_icon, settings_rect)
 
-            # Logo animasi bounce
             logo_angle += 0.05
             bounce_offset = int(20 * math.sin(logo_angle))
             logo_rect.y = logo_base_y + bounce_offset
-
             shadow = logo.copy()
             shadow.fill((0,0,0,120), special_flags=pygame.BLEND_RGBA_MULT)
             screen.blit(shadow, logo_rect.move(5,5))
             screen.blit(logo, logo_rect)
 
-            # Buttons
             for name, data in buttons_home.items():
-                rect, img = data["rect"], data["img"]
-                if rect.collidepoint(mouse_pos):
-                    zoom_img = pygame.transform.rotozoom(img, 0, 1.1)
-                    shadow = zoom_img.copy(); shadow.fill((0,0,0,120), special_flags=pygame.BLEND_RGBA_MULT)
-                    screen.blit(shadow, zoom_img.get_rect(center=rect.center).move(4,4))
-                    screen.blit(zoom_img, zoom_img.get_rect(center=rect.center))
-                else:
-                    screen.blit(img, rect)
+                draw_hover_button(screen, data["img"], data["rect"], mouse_pos)
         else:
-            # Freeze background (guna frame terakhir)
             screen.blit(bg_images[bg_index], (0,0))
-
-            # Logo statik (tak bounce)
             screen.blit(logo, logo_rect)
-
-            # Overlay gelap
             overlay = pygame.Surface((width, height), pygame.SRCALPHA)
             overlay.fill((0, 0, 0, 150))
             screen.blit(overlay, (0, 0))
 
-            # Popup box
             popup_surface = pygame.Surface((400,200), pygame.SRCALPHA)
             pygame.draw.rect(popup_surface, (200,200,200), popup_surface.get_rect(), border_radius=10)
             popup_rect = popup_surface.get_rect(center=(width//2, height//2))
@@ -245,162 +232,161 @@ while True:
                 label = msg_font.render(text, True, (0,0,0))
                 screen.blit(label, label.get_rect(center=rect.center))
 
-    #rendering
     elif current_page == "settings":
         screen.blit(bg_settings, (0,0))
         screen.blit(title_img, title_rect)
-
-        for img, rect in [(timer_img, timer_rect),
-                          (music_img, music_rect),
-                          (volume_img, volume_rect),
-                          (back_img, back_rect)]:
-            if rect.collidepoint(mouse_pos):
-                zoom_img = pygame.transform.rotozoom(img, 0, 1.1)
-                shadow = zoom_img.copy(); shadow.fill((0,0,0,120), special_flags=pygame.BLEND_RGBA_MULT)
-                screen.blit(shadow, zoom_img.get_rect(center=rect.center).move(4,4))
-                screen.blit(zoom_img, zoom_img.get_rect(center=rect.center))
-            else:
-                screen.blit(img, rect)
+        for img, rect in [(timer_img, timer_rect), (music_img, music_rect), (volume_img, volume_rect), (back_img, back_rect)]:
+            draw_hover_button(screen, img, rect, mouse_pos)
 
     elif current_page == "subject":
         screen.blit(bg_subject, (0,0))
         screen.blit(subj_title_img, subj_title_rect)
-
-        for img, rect in [(bm_img, bm_rect),
-                          (eng_img, eng_rect),
-                          (mt_img, mt_rect),
-                          (back_subj_img, back_subj_rect)]:
-            if rect.collidepoint(mouse_pos):
-                zoom_img = pygame.transform.rotozoom(img, 0, 1.1)
-                shadow = zoom_img.copy(); shadow.fill((0,0,0,120), special_flags=pygame.BLEND_RGBA_MULT)
-                screen.blit(shadow, zoom_img.get_rect(center=rect.center).move(4,4))
-                screen.blit(zoom_img, zoom_img.get_rect(center=rect.center))
-            else:
-                screen.blit(img, rect)
+        for img, rect in [(bm_img, bm_rect), (eng_img, eng_rect), (mt_img, mt_rect), (back_subj_img, back_subj_rect)]:
+            draw_hover_button(screen, img, rect, mouse_pos)
 
     elif current_page == "age":
         screen.blit(bg_age, (0,0))
         screen.blit(age_title_img, age_title_rect)
+        for img, rect in [(age_3_6_img, age_3_6_rect), (age_7_9_img, age_7_9_rect), (back_age_img, back_age_rect)]:
+            draw_hover_button(screen, img, rect, mouse_pos)
 
-        for img, rect in [(age_3_6_img, age_3_6_rect),
-                          (age_7_9_img, age_7_9_rect),
-                          (back_age_img, back_age_rect)]:
-            if rect.collidepoint(mouse_pos):
-                zoom_img = pygame.transform.rotozoom(img, 0, 1.1)
-                shadow = zoom_img.copy(); shadow.fill((0,0,0,120), special_flags=pygame.BLEND_RGBA_MULT)
-                screen.blit(shadow, zoom_img.get_rect(center=rect.center).move(4,4))
-                screen.blit(zoom_img, zoom_img.get_rect(center=rect.center))
-            else:
-                screen.blit(img, rect)
-
-    #rendering level map
     elif current_page == "level_map":
         screen.blit(bg_levelmap, (0,0))
-        screen.blit(levelmap_title_img, levelmap_title_rect)   # Banner title
-        screen.blit(back_level_img, back_level_rect)
+        screen.blit(levelmap_title_img, levelmap_title_rect) 
+        draw_hover_button(screen, back_level_img, back_level_rect, mouse_pos)
 
-        # Back button dengan hover zoom
-        if back_level_rect.collidepoint(mouse_pos):
-            zoom_img = pygame.transform.rotozoom(back_level_img, 0, 1.1)
-            shadow = zoom_img.copy()
-            shadow.fill((0,0,0,120), special_flags=pygame.BLEND_RGBA_MULT)
-            screen.blit(shadow, zoom_img.get_rect(center=back_level_rect.center).move(4,4))
-            screen.blit(zoom_img, zoom_img.get_rect(center=back_level_rect.center))
-        else:
-            screen.blit(back_level_img, back_level_rect)
+        total_levels = 3 if selected_age == "3-6" else 2 if selected_age == "7-9" else 0
 
-        # Tentukan jumlah level ikut umur
-        if selected_age == "3-6":
-            total_levels = 3
-        elif selected_age == "7-9":
-            total_levels = 2
-        else:
-            total_levels = 0   # fallback supaya tak error
-
-        # Render level buttons dengan lock
         for i in range(1, total_levels+1):
-            if i <= level_unlocked[selected_age]:
-                img = [level1_img, level2_img, level3_img][i-1]
-            else:
-                img = lock_img
+            img = [level1_img, level2_img, level3_img][i-1] if i <= level_unlocked.get(selected_age, 1) else lock_img
             rect = [level1_rect, level2_rect, level3_rect][i-1]
             screen.blit(img, rect)
-          
-    # Events
+
+    elif current_page == "daily_report":
+        screen.fill((200, 220, 255))
+        draw_hover_button(screen, back_img, back_rect, mouse_pos)
+        font = pygame.font.SysFont(None, height//15)
+        text = font.render("Daily Report: Coming Soon!", True, (0,0,0))
+        screen.blit(text, text.get_rect(center=(width//2, height//2)))
+
+    elif current_page == "minigame":
+        screen.fill((255, 255, 255)) 
+        draw_hover_button(screen, back_img, back_rect, mouse_pos)
+        if active_minigame:
+            active_minigame.draw(screen)
+        draw_hover_button(screen, back_img, back_rect, mouse_pos)
+
+
+    # ==========================================
+    # 2. EVENT HANDLING BLOCK (Handles inputs)
+    # ==========================================
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             pygame.quit(); sys.exit()
+            
         elif event.type == pygame.MOUSEBUTTONDOWN:
+            # 3. GLOBAL BACK BUTTON LOGIC
+            # Automatically check for back button clicks if we aren't on the home screen
+            if current_page != "home":
+                is_back_clicked = False
+                
+                # Check all possible back button rects
+                if current_page == "settings" or current_page == "daily_report" or current_page == "minigame":
+                    if back_rect.collidepoint(event.pos): is_back_clicked = True
+                elif current_page == "age" and back_age_rect.collidepoint(event.pos): is_back_clicked = True
+                elif current_page == "subject" and back_subj_rect.collidepoint(event.pos): is_back_clicked = True
+                elif current_page == "level_map" and back_level_rect.collidepoint(event.pos): is_back_clicked = True
+                
+                # 4. POP THE STACK
+                if is_back_clicked:
+                    print(f"[DEBUG] Back button clicked. Popping '{current_page}'.")
+                    if len(page_stack) > 1:
+                        page_stack.pop()
+                        if current_page == "minigame":
+                            active_minigame = None # Clean up game logic
+                    continue # Skip checking other buttons on this frame
+
+            # Forward Navigation Logic
             if current_page == "home":
                 if not show_popup:
                     if buttons_home["Exit"]["rect"].collidepoint(event.pos):
                         show_popup = True
-                    
-                    # --- Go to Subject Page bila klik Play ---
                     elif buttons_home["Play"]["rect"].collidepoint(event.pos):
-                        current_page = "subject" 
-                        print("📚 Go to Subject Page")
+                        print("[DEBUG] Pushing 'age'")
+                        page_stack.append("age") 
                     elif buttons_home["Daily Report"]["rect"].collidepoint(event.pos):
-                        print("📊 Show Daily Report")
+                        print("[DEBUG] Pushing 'daily_report'")
+                        page_stack.append("daily_report") 
                     elif settings_rect.collidepoint(event.pos):
-                        current_page = "settings"
+                        print("[DEBUG] Pushing 'settings'")
+                        page_stack.append("settings")
                 else:
                     if popup_buttons["Yes"].collidepoint(event.pos):
                         pygame.quit(); sys.exit()
                     elif popup_buttons["No"].collidepoint(event.pos):
                         show_popup = False
-            elif current_page == "settings":
-                if back_rect.collidepoint(event.pos):
-                    current_page = "home"
-                elif timer_rect.collidepoint(event.pos):
-                    print("⏱ Timer Settings")
-                elif music_rect.collidepoint(event.pos):
-                    print("🎵 Music Settings")
-                elif volume_rect.collidepoint(event.pos):
-                    print("🔊 Volume Settings")
+            
+            # (Settings and Daily Report forward navigation handled here if any exist)
 
-            #subject page button click
-            elif current_page == "subject":
-                if back_subj_rect.collidepoint(event.pos):
-                    current_page = "home"
-                    print("🏠 Back to Homepage")
-                elif bm_rect.collidepoint(event.pos):
-                    current_page = "age"
-                    print("📖 Bahasa Melayu selected → Go to Age Page")
-                elif eng_rect.collidepoint(event.pos):
-                    current_page = "age"
-                    print("📖 English selected → Go to Age Page")
-                elif mt_rect.collidepoint(event.pos):
-                    current_page = "age"
-                    print("📖 Mathematics selected → Go to Age Page")
-
-            #age page button click
             elif current_page == "age":
-                if back_age_rect.collidepoint(event.pos):
-                    current_page = "subject"
-                    print("📚 Back to Subject Page")
-                elif age_3_6_rect.collidepoint(event.pos):
+                if age_3_6_rect.collidepoint(event.pos):
+                    print("[DEBUG] Pushing 'subject' (Age 3-6)")
                     selected_age = "3-6"
-                    current_page = "level_map"
-                    print("👶 Age 3-6 selected → Go to Level Map")
+                    page_stack.append("subject") 
                 elif age_7_9_rect.collidepoint(event.pos):
+                    print("[DEBUG] Pushing 'subject' (Age 7-9)")
                     selected_age = "7-9"
-                    current_page = "level_map"
-                    print("🧒 Age 7-9 selected → Go to Level Map")
+                    page_stack.append("subject") 
 
-            # Level map button click
+            elif current_page == "subject":
+                if bm_rect.collidepoint(event.pos):
+                    print("[DEBUG] Pushing 'level_map' (BM)")
+                    selected_subject = "BM"
+                    page_stack.append("level_map") 
+                elif eng_rect.collidepoint(event.pos):
+                    print("[DEBUG] Pushing 'level_map' (BI)")
+                    selected_subject = "BI"
+                    page_stack.append("level_map") 
+                elif mt_rect.collidepoint(event.pos):
+                    print("[DEBUG] Pushing 'level_map' (Math)")
+                    selected_subject = "Math"
+                    page_stack.append("level_map") 
+
             elif current_page == "level_map":
-                if back_level_rect.collidepoint(event.pos):
-                    current_page = "age"
-                    print("🔙 Back to Age Page")
-                elif selected_age and level_unlocked[selected_age] >= 1 and level1_rect.collidepoint(event.pos):
-                    print("🎯 Level 1 selected")
-                # nanti boleh link ke game level 1
-                elif selected_age and level_unlocked[selected_age] >= 2 and level2_rect.collidepoint(event.pos):
-                    print("🎯 Level 2 selected")
-                elif selected_age == "3-6" and level_unlocked[selected_age] >= 3 and level3_rect.collidepoint(event.pos):
-                    print("🎯 Level 3 selected")
+                if selected_age and level_unlocked.get(selected_age, 1) >= 1 and level1_rect.collidepoint(event.pos):
+                    current_level = 1
+                    page_stack.append("minigame") 
+                    if selected_age == "3-6" and selected_subject == "BI":
+                        active_minigame = MemoryGame(width, height, pairs=3) 
+                    elif selected_age == "3-6" and selected_subject == "BM":
+                        active_minigame = AudioQuizGame(width, height)
+                    else:
+                        active_minigame = DragDropGame(width, height)
 
+                elif selected_age and level_unlocked.get(selected_age, 1) >= 2 and level2_rect.collidepoint(event.pos):
+                    current_level = 2
+                    page_stack.append("minigame")
+                    active_minigame = DragDropGame(width, height) 
+                
+                elif selected_age == "3-6" and level_unlocked.get(selected_age, 1) >= 3 and level3_rect.collidepoint(event.pos):
+                    current_level = 3
+                    page_stack.append("minigame") 
+                    active_minigame = DragDropGame(width, height) 
+
+            # Minigame specific clicks
+            elif current_page == "minigame":
+               
+                if active_minigame:
+                    if hasattr(active_minigame, 'handle_click'):
+                        active_minigame.handle_click(event.pos)
+                    elif hasattr(active_minigame, 'handle_event'):
+                        active_minigame.handle_event(event)
+                
+                    
+                        
+        elif event.type == pygame.MOUSEMOTION or event.type == pygame.MOUSEBUTTONUP:
+            if current_page == "minigame" and active_minigame and hasattr(active_minigame, 'handle_event'):
+                active_minigame.handle_event(event)
 
     pygame.display.flip()
     clock.tick(60)
