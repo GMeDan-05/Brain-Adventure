@@ -1,15 +1,16 @@
 import pygame, sys, time, math
+from minigames import MemoryGame, DragDropGame, AudioQuizGame
 
 pygame.init()
 screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
 width, height = screen.get_size()
 pygame.display.set_caption("Brain Adventure")
 
-<<<<<<< HEAD
+
 # Settings icon
 settings_icon = pygame.image.load("settings_logo.png")
 settings_icon = pygame.transform.smoothscale(settings_icon, (width // 18, height // 18))
-=======
+
 clock = pygame.time.Clock()
 
 # Backgrounds (homepage slideshow)
@@ -33,7 +34,6 @@ orig_w, orig_h = settings_icon.get_size()
 target_w = width // 15
 target_h = int(orig_h * (target_w / orig_w))
 settings_icon = pygame.transform.smoothscale(settings_icon, (target_w, target_h))
->>>>>>> 97ba3d6691234b97b5999e5a3957937c5992a850
 settings_rect = settings_icon.get_rect(topright=(width - 25, 25))
 
 # Homepage buttons
@@ -61,7 +61,6 @@ popup_buttons = {
 }
 show_popup = False
 
-<<<<<<< HEAD
 # Background scenes (smoothscale untuk HD)
 bg_images = [
     pygame.transform.smoothscale(pygame.image.load("intro hp1.png"), (width, height)),
@@ -71,7 +70,7 @@ bg_images = [
 bg_index = 0
 last_switch = time.time()
 switch_interval = 0.5
-=======
+
 #start settings page
 # --- Function resize ikut ratio ---
 def load_button_ratio(path, target_w):
@@ -192,11 +191,11 @@ back_level_rect = back_level_img.get_rect(topleft=(25,25))
 # Track progress
 level_unlocked = {"3-6": 1, "7-9": 1}  # default unlock level 1 only
 selected_age = None
-
+selected_subject = None  # nanti boleh guna untuk simpan subject yang dipilih, kalau nak implement level ikut subject
+current_level = None
 # State control
 current_page = "home"
->>>>>>> 97ba3d6691234b97b5999e5a3957937c5992a850
-
+active_minigame = None  # untuk track game yang sedang dimainkan
 # Main loop
 while True:
     mouse_pos = pygame.mouse.get_pos()
@@ -343,6 +342,8 @@ while True:
                 img = lock_img
             rect = [level1_rect, level2_rect, level3_rect][i-1]
             screen.blit(img, rect)
+        
+    
           
     # Events
     for event in pygame.event.get():
@@ -384,12 +385,15 @@ while True:
                     print("🏠 Back to Homepage")
                 elif bm_rect.collidepoint(event.pos):
                     current_page = "age"
+                    selected_subject = "BM"
                     print("📖 Bahasa Melayu selected → Go to Age Page")
                 elif eng_rect.collidepoint(event.pos):
                     current_page = "age"
+                    selected_subject = "Eng"
                     print("📖 English selected → Go to Age Page")
                 elif mt_rect.collidepoint(event.pos):
                     current_page = "age"
+                    selected_subject = "MT"
                     print("📖 Mathematics selected → Go to Age Page")
 
             #age page button click
@@ -413,11 +417,34 @@ while True:
                     print("🔙 Back to Age Page")
                 elif selected_age and level_unlocked[selected_age] >= 1 and level1_rect.collidepoint(event.pos):
                     print("🎯 Level 1 selected")
+                    current_level = 1
+                    current_page = "minigame"  # masuk ke state game untuk load minigame yang sesuai dengan level
                 # nanti boleh link ke game level 1
                 elif selected_age and level_unlocked[selected_age] >= 2 and level2_rect.collidepoint(event.pos):
                     print("🎯 Level 2 selected")
+                    current_level = 2
+                    current_page = "minigame"  
                 elif selected_age == "3-6" and level_unlocked[selected_age] >= 3 and level3_rect.collidepoint(event.pos):
                     print("🎯 Level 3 selected")
+                    current_level = 3
+                    current_page = "minigame"  
+
+            elif current_page == "minigame":
+                screen.fill((255, 255, 255)) # Clear screen
+                if active_minigame:
+                    active_minigame.draw(screen)
+
+        elif event.type == pygame.MOUSEBUTTONDOWN:
+            if current_page == "minigame" and active_minigame:
+                # Some games use handle_click, some use handle_event
+                if hasattr(active_minigame, 'handle_click'):
+                    active_minigame.handle_click(event.pos)
+                elif hasattr(active_minigame, 'handle_event'):
+                    active_minigame.handle_event(event)
+
+
+            
+
 
 
     pygame.display.flip()
